@@ -1,29 +1,29 @@
-const { scanCsv } = require('./utils/scanCsv');
-const { writeJson } = require('./utils/writeJson');
-const path = require('path');
+const { readCSV, writeCSV } = require('./modules/csvHandler');
+const { processRecords } = require('./modules/recordProcessor');
 
-const csvFilePath = path.join(__dirname, '../scripts/out/File_Details.csv');
-const jsonOutputPath = path.join(__dirname, '../scripts/out/File_Details.json');
-const duplicatesOutputPath = path.join(__dirname, '../scripts/out/File_Duplicates.json');
+function main() {
+    const inputFiles = [
+        './scripts/out/File_Details.csv',
+        './scripts/out/SharePoint_File_Details.csv'
+    ];
+    const outputFiles = [
+        './scripts/out/Processed_File_Details_Local.csv',
+        './scripts/out/Processed_File_Details_SharePoint.csv'
+    ];
 
-const callback = (record, allRecords) => {
-  console.log(record)
-    // Find duplicates by name and extension
-    const duplicates = allRecords.filter(r => r.name === record.name && r.extension === record.extension);
-    return duplicates.length > 1;
-};
+    // Read CSVs
+    const localRecords = readCSV(inputFiles[0]);
+    const sharepointRecords = readCSV(inputFiles[1]);
 
-scanCsv(csvFilePath, (records) => {
-    // Write the full JSON file
-    writeJson(jsonOutputPath, records);
+    // Process records to flag geodatabase and duplicates
+    const updatedLocalRecords = processRecords(localRecords, sharepointRecords, true);
+    const updatedSharepointRecords = processRecords(sharepointRecords, localRecords, false);
 
-    // Generate the file names with duplicate flag
-    const fileNamesWithDuplicates = records.map(record => ({
-        fileName: `${record.name}${record.extension}`,
-        isDuplicate: callback(record, records)
-    }));
+    // Write updated records to new CSVs
+    writeCSV(outputFiles[0], updatedLocalRecords);
+    writeCSV(outputFiles[1], updatedSharepointRecords);
 
-    writeJson(duplicatesOutputPath, fileNamesWithDuplicates);
+    console.log('CSV processing complete. Updated files saved as Processed_File_Details_Local.csv and Processed_File_Details_SharePoint.csv');
+}
 
-    console.log('JSON files generated successfully.');
-});
+main();
